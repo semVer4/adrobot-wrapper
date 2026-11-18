@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Создание кампании · Adrobot</title>
+  <link rel="stylesheet" href="/static/styles.css">
+  <script src="/static/app.js" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="shell topbar-inner">
+      <a href="#create" class="brand" aria-label="Adrobot — создание кампании">
+        <span class="brand-mark" aria-hidden="true"></span>Adrobot
+      </a>
+      <nav aria-label="Кампании">
+        <a id="nav-create" href="#create" aria-current="page">Создание</a>
+        <a id="nav-editor" href="#editor">Редактор</a>
+      </nav>
+    </div>
+  </header>
+  <main class="shell">
+    <section id="create" aria-labelledby="create-title">
+      <h1 id="create-title">Создание кампании</h1>
+      <form id="create-form" class="panel create-form">
+        <fieldset>
+          <legend>Параметры кампании</legend>
+          <div class="form-grid">
+            <label class="wide">Название
+              <input name="name" required maxlength="255" placeholder="test_rozhko_campaign1" aria-describedby="name-help">
+              <span class="hint" id="name-help">На тестовом стенде начните название с test_фамилия_.</span>
+            </label>
+            <label>Страна
+              <input name="country" required maxlength="2" minlength="2" pattern="[A-Za-z]{2}" placeholder="Например, DE" aria-describedby="country-help" class="country">
+              <span class="hint" id="country-help">Переходы из этой страны уйдут в Google.</span>
+            </label>
+            <div id="create-offer"></div>
+          </div>
+        </fieldset>
+        <fieldset>
+          <legend>Настройки трекера</legend>
+          <div class="form-grid tracker-options">
+            <label>Домен<select name="domain_id" required></select></label>
+            <label>Группа кампаний<select name="group_id" required></select></label>
+            <label>Источник трафика<select name="traffic_source_id" required></select></label>
+          </div>
+          <div id="options-feedback" class="feedback" role="status"></div>
+        </fieldset>
+        <div class="form-footer">
+          <button id="create-button" class="primary" type="submit">Создать кампанию</button>
+          <div id="create-feedback" class="feedback" role="status"></div>
+        </div>
+      </form>
+    </section>
+    <section id="editor" aria-labelledby="editor-title" hidden>
+      <h1 id="editor-title">Редактор кампании</h1>
+      <form id="fetch-form" class="panel fetch-form">
+        <label>ID кампании
+          <input name="campaign_id" type="number" min="1" step="1" required placeholder="Например, 128">
+        </label>
+        <button type="submit" class="primary">Загрузить из трекера</button>
+      </form>
+      <p id="editor-feedback" class="feedback" role="status"></p>
+      <div id="workspace" hidden>
+        <div class="section-heading">
+          <h2 id="streams-heading"></h2>
+          <p>Изменения сохраняются в черновике каждого потока до отправки в трекер.</p>
+        </div>
+        <div id="streams"></div>
+      </div>
+    </section>
+  </main>
+</body>
+</html>
