@@ -1,4 +1,4 @@
-# Редактор кампаний Keitaro
+# Обёртка над Keitaro
 
 Приложение на FastAPI и SQLAlchemy
 
