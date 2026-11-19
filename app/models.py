@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, CheckConstraint, ForeignKey, Integer, String
+from sqlalchemy import JSON, Boolean, CheckConstraint, ForeignKey, Integer, String
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -35,6 +35,7 @@ class StreamOffer(Base):
     share: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     pinned: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     archived: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    removal_snapshot: Mapped[dict | None] = mapped_column(JSON(none_as_null=True))
     # A newly added draft offer has no published baseline. An archived offer does.
     published: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     published_share: Mapped[int] = mapped_column(Integer, nullable=False, default=0)

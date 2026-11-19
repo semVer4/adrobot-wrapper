@@ -109,6 +109,54 @@ def test_publish_archive_and_restore(editor):
     assert tracker.writes[-1] == [link(11, 50), link(22, 50)]
 
 
+def test_undo_pending_removal_restores_unequal_unpinned_split(editor):
+    client, tracker = editor
+    tracker.streams[0]["offers"] = [link(11, 60), link(22, 30), link(33, 10)]
+    original = client.post(FETCH).json()["streams"][0]
+    removed = client.patch(OFFERS + "/22", json={"archived": True}).json()
+    assert weights(removed) == {11: 50, 33: 50}
+    assert rows(removed)[22]["pending_removal"]
+
+    restored = client.patch(OFFERS + "/22", json={"archived": False}).json()
+    assert restored == original
+    assert client.get(LOCAL).json()["streams"][0] == original
+    assert tracker.writes == []
+
+
+def test_undo_pending_removal_preserves_draft_pin_across_reload_and_fetch(editor):
+    client, tracker = editor
+    client.post(FETCH)
+    before_removal = client.patch(OFFERS + "/22", json={"pinned": True, "share": 25}).json()
+    assert before_removal["dirty"] and weights(before_removal) == {11: 75, 22: 25}
+    removed = client.patch(OFFERS + "/22", json={"archived": True}).json()
+    assert client.patch(OFFERS + "/22", json={"archived": True}).json() == removed
+    assert client.get(LOCAL).json()["streams"][0] == removed
+    assert client.post(FETCH).json()["streams"][0] == removed
+
+    restored = client.patch(OFFERS + "/22", json={"archived": False}).json()
+    assert restored == before_removal
+    assert tracker.writes == []
+
+
+def test_undo_pending_removal_retains_later_pin_and_can_retry_after_conflict(editor):
+    client, tracker = editor
+    tracker.streams[0]["offers"] = [link(11, 60), link(22, 30), link(33, 10)]
+    client.post(FETCH)
+    assert client.patch(OFFERS + "/22", json={"share": 25}).status_code == 200
+    assert client.patch(OFFERS + "/22", json={"archived": True}).status_code == 200
+    conflicting = client.patch(OFFERS + "/11", json={"share": 80}).json()
+    assert weights(conflicting) == {11: 80, 33: 20}
+
+    assert client.patch(OFFERS + "/22", json={"archived": False}).status_code == 422
+    assert client.get(LOCAL).json()["streams"][0] == conflicting
+    assert client.patch(OFFERS + "/11", json={"share": 60}).status_code == 200
+    restored = client.patch(OFFERS + "/22", json={"archived": False}).json()
+    assert weights(restored) == {11: 60, 22: 25, 33: 15}
+    assert rows(restored)[11]["pinned"] and rows(restored)[22]["pinned"]
+    assert not rows(restored)[22]["pending_removal"]
+    assert tracker.writes == []
+
+
 def test_removing_unpublished_offer_makes_it_available_again(editor):
     client, tracker = editor
     tracker.streams[0]["offers"] = [link(11, 100)]

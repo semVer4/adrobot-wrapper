@@ -158,6 +158,7 @@ def remote_weights(remote: RemoteStream) -> dict[int, int]:
 
 
 def restore_baseline(row: StreamOffer) -> None:
+    row.removal_snapshot = None
     row.share = row.published_share
     row.archived = row.published_archived
     row.pinned = row.published_pinned
@@ -182,12 +183,15 @@ def reconcile(stream: StreamRecord, remote: RemoteStream, client: KeitaroClient,
         row.published = True
         row.published_share = entry.share
         row.published_archived = entry.archived
+        if entry.archived:
+            row.removal_snapshot = None
         row.published_pinned = bool(row.published_pinned) and not entry.archived
         if not dirty:
             restore_baseline(row)
 
     for offer_id, row in local.items():
         if offer_id not in remote.offers and row.published:
+            row.removal_snapshot = None
             row.published_share = 0
             row.published_archived = True
             row.published_pinned = False
@@ -231,12 +235,17 @@ def require_editable(stream: StreamRecord) -> None:
         raise HTTPException(409, "В этом потоке нет офферов для управления.")
 
 
-def distribute(stream: StreamRecord) -> None:
+def distribute(stream: StreamRecord, *, keep_share_of: StreamOffer | None = None) -> None:
     active = [row for row in stream.offers if not row.archived]
     if not active:
         raise HTTPException(422, "В потоке должен остаться хотя бы один активный оффер.")
-    remaining = 100 - sum(row.share for row in active if row.pinned)
-    free = sorted((row for row in active if not row.pinned), key=lambda row: row.offer_id)
+    remaining = 100 - sum(row.share for row in active if row.pinned or row is keep_share_of)
+    free = sorted(
+        (row for row in active if not row.pinned and row is not keep_share_of),
+        key=lambda row: row.offer_id,
+    )
+    if keep_share_of is not None and (remaining < 0 or (not free and remaining != 0)):
+        raise HTTPException(422, "Прежняя доля не помещается. Измените закреплённые доли других офферов.")
     if remaining < 0:
         raise HTTPException(422, "Сумма закреплённых весов превышает 100%.")
     if not free:
@@ -246,6 +255,30 @@ def distribute(stream: StreamRecord) -> None:
     share, extra = divmod(remaining, len(free))
     for index, row in enumerate(free):
         row.share = share + int(index < extra)
+
+
+def undo_removal(stream: StreamRecord, row: StreamOffer) -> None:
+    before = row.removal_snapshot
+    if before is None:
+        # Drafts removed before the migration only have their published baseline.
+        before = {
+            str(r.offer_id): [r.published_share, r.published_pinned]
+            for r in stream.offers if r.published and not r.published_archived
+        }
+    row.archived = False
+    row.share, row.pinned = before[str(row.offer_id)]
+    active = {str(r.offer_id): r for r in stream.offers if not r.archived}
+    if active.keys() == before.keys() and all(
+        r.pinned == before[key][1] and (not r.pinned or r.share == before[key][0])
+        for key, r in active.items()
+    ):
+        # Removal also redistributed the other offers, including unequal, unpinned shares.
+        for key, r in active.items():
+            r.share = before[key][0]
+    else:
+        # Keep later edits to the other offers and reserve the restored share for this calculation.
+        distribute(stream, keep_share_of=row)
+    row.removal_snapshot = None
 
 
 @router.post("/streams/{stream_id}/offers")
@@ -279,6 +312,15 @@ def edit_offer(stream_id: Identifier, offer_id: Identifier, body: OfferEdit, db:
         if body.archived is not None:
             if len(body.model_fields_set) != 1:
                 raise HTTPException(422, "Архивация и восстановление выполняются отдельно от изменения веса.")
+            if body.archived == row.archived:
+                return stream_snapshot(stream)
+            if not body.archived and row.published and not row.published_archived:
+                undo_removal(stream, row)
+                return stream_snapshot(stream)
+            if body.archived and row.published and not row.published_archived:
+                row.removal_snapshot = {
+                    str(r.offer_id): [r.share, r.pinned] for r in stream.offers if not r.archived
+                }
             row.archived = body.archived
             if row.archived:
                 row.pinned = False
@@ -317,6 +359,7 @@ def accept_draft(stream: StreamRecord) -> None:
             stream.offers.remove(row)
             continue
         row.published = True
+        row.removal_snapshot = None
         row.published_share = row.share
         row.published_pinned = row.pinned
         row.published_archived = row.archived
