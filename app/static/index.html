@@ -27,12 +27,10 @@
           <legend>Параметры кампании</legend>
           <div class="form-grid">
             <label class="wide">Название
-              <input name="name" required maxlength="255" placeholder="test_rozhko_campaign1" aria-describedby="name-help">
-              <span class="hint" id="name-help">На тестовом стенде начните название с test_фамилия_.</span>
+              <input name="name" required maxlength="255" placeholder="test_rozhko_campaign1">
             </label>
             <label>Страна
-              <input name="country" required maxlength="2" minlength="2" pattern="[A-Za-z]{2}" placeholder="Например, DE" aria-describedby="country-help" class="country">
-              <span class="hint" id="country-help">Переходы из этой страны уйдут в Google.</span>
+              <input name="country" required maxlength="2" minlength="2" pattern="[A-Za-z]{2}" placeholder="DE" class="country">
             </label>
             <div id="create-offer"></div>
           </div>
@@ -64,7 +62,6 @@
       <div id="workspace" hidden>
         <div class="section-heading">
           <h2 id="streams-heading"></h2>
-          <p>Изменения сохраняются в черновике каждого потока до отправки в трекер.</p>
         </div>
         <div id="streams"></div>
       </div>

@@ -144,7 +144,7 @@ function offerLookup(title) {
   };
 }
 
-const creationOffer = offerLookup("Оффер для остальных переходов");
+const creationOffer = offerLookup("Оффер для других стран");
 $("create-offer").append(creationOffer.root);
 
 async function loadOptions() {
